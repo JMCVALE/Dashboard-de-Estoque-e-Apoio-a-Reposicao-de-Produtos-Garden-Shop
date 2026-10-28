@@ -742,4 +742,4 @@ Mudanças que alterem o escopo do produto devem também atualizar o `PRD.md`.
 
 | Versão | Data | Alterações | Status |
 | --- | --- | --- | --- |
-| 1.0 | 2026-10-27 | Criação inicial a partir do PRD 1.1, com exemplos calculados sobre o recorte dos CSVs | Draft |
+| 1.0 | 2026-10-27 | Criação inicial a partir do PRD 1.1, com exemplos calculados sobre o recorte dos CSVs | Implementado |
