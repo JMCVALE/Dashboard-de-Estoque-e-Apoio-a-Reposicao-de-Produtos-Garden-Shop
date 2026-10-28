@@ -7,22 +7,12 @@
 ## 1. Metadados
 
 - **Projeto:** Dashboard de Estoque e Apoio à Reposição de Produtos — Garden Shop
-- **Versão da especificação:** 1.0
-- **Status:** Draft
+- **Versão da especificação:** 1.0 (implementado)
 - **PRD relacionado:** `PRD.md` (versão 1.1)
 - **Responsável pela aprovação:** Júlia Maria de Carvalho Vale
 - **Data:** 2026-10-27
 
-> Documento redigido com apoio de IA generativa (Claude). Nada foi implementado ainda: todo o conteúdo é **planejado**, e nenhum requisito está marcado como implementado ou verificado. A tecnologia (ADR-001) é uma **proposta** que depende da decisão DP-001 do PRD.
-
-### Status permitidos
-
-- `Draft`: em elaboração.
-- `In Review`: em revisão.
-- `Approved`: aprovado para implementação.
-- `Implemented`: implementado, aguardando validação final ou conclusão.
-- `Verified`: implementação validada contra os critérios definidos.
-- `Deprecated`: substituído ou descontinuado.
+> Documento redigido com apoio de IA generativa (Claude).
 
 ## 2. Objetivo técnico
 
