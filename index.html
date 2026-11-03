@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Garden Shop – Dashboard de Estoque (Stlite)</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/@stlite/shim@2.0.0-beta.12/dist/stlite.js"></script>
+  <style>
+    html, body, #root { margin:0; height:100%; width:100%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    const root = document.getElementById("root");
+    // O Stlite carrega o diretório atual ('.') como sistema de arquivos virtual.
+    // Assim, ele encontrará app.py, requirements.txt, src/ e a pasta "Garden Shop - bases" com os CSVs.
+    stlite.mount(root, { startUrl: '.' });
+  </script>
+</body>
+</html>

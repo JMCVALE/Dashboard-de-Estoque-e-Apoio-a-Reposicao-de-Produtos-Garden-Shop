@@ -1,0 +1,368 @@
+PROPOSTA DE DASHBOARD
+Acompanhamento de Estoque e Apoio à Reposição de Produtos
+Loja virtual de jardinagem – Garden Shop
+Aluna: Júlia Maria de Carvalho Vale
+Lista de Exercícios 01
+Nota sobre o uso de Inteligência Artificial: Este trabalho foi desenvolvido com o apoio de ferramentas de Inteligência Artificial generativa, utilizadas para auxiliar na elaboração da proposta, no levantamento de indicadores e na organização das análises. As sugestões geradas foram avaliadas criticamente, considerando o objetivo do exercício, os dados disponíveis e as regras de negócio estabelecidas.
+Resumo da proposta
+Este documento apresenta a proposta de um dashboard interativo para acompanhar o estoque da Garden Shop e apoiar as decisões de reposição. A proposta foi construída exclusivamente a partir das seis tabelas fornecidas (produtos, categorias, fornecedores, pedidos, itens de pedido e clientes) e do dicionário de dados.
+A ideia central é transformar o estoque em uma lista de ação: 
+Gestor abre o dashboard e enxerga, em poucos segundos, quais produtos precisam de reposição, em que ordem de prioridade, junto a qual fornecedor e com qual impacto financeiro;
+Com os dados atuais, o dashboard indicaria 5 produtos ativos abaixo do nível de reposição (de 23 ativos), sendo 1 em ruptura (Hanging Basket) e 2 em nível crítico (Tomato Seeds 'Roma' e Hand Cultivator), além de um estoque total de US$ 4.763,00 a custo.
+Todos os valores citados neste documento foram calculados diretamente sobre os arquivos recebidos e servem para demonstrar como o dashboard funcionaria.
+1. Objetivo do dashboard e necessidades atendidas
+Objetivo: oferecer à equipe de gestão uma visão única, rápida e confiável da situação atual do estoque, apontando quais produtos devem ser repostos, com que prioridade, a qual fornecedor se referem e qual o valor financeiro envolvido.
+Público-alvo: gestores e responsáveis pela operação e pelas compras, que hoje têm dificuldade de identificar rapidamente os itens que exigem atenção. Por isso o dashboard foi pensado para leitura rápida, com poucos elementos por tela e foco em decisão, não em exploração livre de dados.
+Decisão que o dashboard apoia: “o que repor primeiro e com quem falar?”. Ele não pretende analisar clientes, campanhas ou desempenho comercial, pois isso fugiria do objetivo definido pela gestão. As necessidades da empresa foram traduzidas em sete perguntas de negócio, respondidas na Seção 7:
+Quais produtos estão abaixo do nível de estoque recomendado?
+Quais produtos estão com estoque zerado ou muito baixo?
+Quais produtos têm maior volume de vendas e merecem atenção quanto à disponibilidade?
+Quais categorias concentram mais produtos a repor?
+Qual é o valor estimado do estoque, considerando os custos cadastrados?
+Quais produtos devem ser acompanhados com prioridade?
+Quais fornecedores estão associados aos produtos a repor?
+2. Base de dados utilizada
+A tabela abaixo resume o que cada arquivo oferece e se será usado. A escolha de não usar a tabela de clientes foi deliberada: ela não ajuda a responder nenhuma das perguntas de estoque.
+Tabela
+Linhas
+Informações relevantes
+Uso no dashboard
+products
+24
+Estoque atual (quantity_on_hand), nível de reposição (reorder_level), custo, preço, descontinuado, categoria e fornecedor
+Central. Base de todos os indicadores de estoque
+categories
+8
+Nome da categoria
+Agrupamento e filtro por categoria
+suppliers
+6
+Nome, e-mail de contato e estado
+Identificação do fornecedor e contato para reposição
+orders
+24
+Status do pedido, datas, cupom
+Excluir cancelados, filtrar por status e por período
+order_items
+48
+Produto, quantidade e preço unitário por pedido
+Volume vendido por produto
+customers
+20
+Dados cadastrais dos clientes
+Não utilizada (sem relação com o estoque)
+Relacionamentos: order_items → products (product_id); order_items → orders (order_id); products → categories (category_id); products → suppliers (supplier_id). Na modelagem do dashboard, os dados são consolidados em uma visão com uma linha por produto, contendo estoque, nível de reposição, custo, categoria, fornecedor e unidades vendidas efetivas. Campos como coupon_code, shipped_date e price não são necessários para o objetivo e ficam fora dos indicadores principais.
+2.1 Exploração e qualidade dos dados
+Antes de definir os indicadores, os arquivos foram explorados para verificar o que a base realmente permite calcular. Os principais pontos encontrados foram:
+Período e status dos pedidos: 24 pedidos entre 15/01/2024 e 14/06/2024, sendo 17 enviados, 3 em processamento, 3 pendentes e 1 cancelado. São 48 itens e 86 unidades em pedidos não cancelados.
+Preços: o preço unitário registrado em todos os 48 itens de pedido é igual ao preço atual do produto. Não há variação de preço a analisar, por isso o preço não entra nos indicadores principais.
+Produtos sem nenhuma venda registrada: Hanging Basket e Bird Feeder não aparecem em nenhum pedido. No caso da Hanging Basket, que está com estoque zero, não é possível saber se o estoque acabou por vendas anteriores ao período ou se ela nunca foi abastecida.
+Vendas concentradas e com empates: Sunflower Seeds (12) e Terracotta Pot 8in (9) somam 21 das 86 unidades (cerca de 24%); sete produtos vendem exatamente 5 unidades cada, o que limita rankings muito detalhados.
+Fornecedores: só 5 dos 6 fornecedores têm produtos associados (RootWorks Supply não tem nenhum), e Ironwood Tools e RootWorks Supply não têm e-mail cadastrado. A Ironwood fornece o Hand Cultivator, que está em nível crítico.
+Formatos: o dicionário descreve as datas como DD/MM/AAAA e os booleanos como TRUE/FALSE, mas os arquivos trazem AAAA-MM-DD e true/false; é preciso padronizar na importação (ver Seção 8).
+3. Regras de negócio
+As regras abaixo definem como os números são calculados. Elas existem para que todos interpretem o dashboard da mesma forma e para tratar os casos que o enunciado destacou (pedidos cancelados e produtos descontinuados).
+Regra
+Tema
+Definição e justificativa
+RN1
+Pedidos cancelados
+Pedidos com status “cancelled” não são vendas efetivas e são excluídos de todo cálculo de volume vendido. Na base há 1 pedido cancelado (pedido 17, 1 unidade de Pruning Shears, US$ 22,00). O dashboard exibe um aviso informando o que foi desconsiderado, para dar transparência.
+RN2
+Pedidos em andamento
+Pedidos “shipped” são vendas concluídas; “pending” e “processing” são demandas já comprometidas que tendem a consumir estoque. Por padrão, o volume vendido considera todos os pedidos não cancelados (86 unidades: 65 enviadas + 21 em andamento). O filtro “Status do pedido” permite ver apenas os enviados.
+RN3
+Produtos descontinuados
+Produtos com discontinued = TRUE não entram na lista de reposição nem nos alertas. Continuam contando no valor do estoque (são capital imobilizado), mas aparecem em área separada, rotulada “não repor”. Na base: Bird Feeder (4 unidades, abaixo do nível de 6, mas não recomendado para reposição).
+RN4
+Abaixo do nível de reposição
+Produto ativo está “abaixo do nível” quando quantity_on_hand < reorder_level.
+RN5
+Nível de alerta
+Razão = estoque ÷ nível de reposição. Ruptura: estoque = 0. Crítico: razão < 50%. Alerta: 50% a menos de 100%. Observação: 100% a 150%. Adequado: acima de 150%. Os cortes são parâmetros ajustáveis pela gestão; os valores iniciais foram escolhidos para separar o que exige ação imediata do que merece apenas acompanhamento.
+RN6
+Valor do estoque
+Soma de quantity_on_hand × cost, ou seja, a custo, conforme pedido pela gestão (e não a preço de venda).
+RN7
+Déficit para o nível
+reorder_level − quantity_on_hand, apenas para produtos abaixo do nível. É a quantidade mínima para voltar ao nível de reposição, e não uma sugestão de quantidade de compra (a base não informa estoque-alvo).
+RN8
+Alta saída
+Produto com 4 ou mais unidades vendidas efetivas (parâmetro ajustável). Serve para destacar itens em alerta que também vendem bem.
+RN9
+Ordem de prioridade
+Primeiro pelo nível de alerta (ruptura, crítico, alerta, observação); dentro de cada nível, por unidades vendidas (maior primeiro).
+RN10
+Ausência de vendas
+Venda zero não significa ausência de demanda quando o estoque está zerado (o produto não tinha como vender). O dashboard evita essa conclusão para itens em ruptura.
+4. Indicadores e informações apresentadas
+Os indicadores foram escolhidos por responderem diretamente às perguntas da gestão e por poderem ser calculados com segurança a partir dos dados disponíveis.
+Indicador
+Cálculo
+Por que é relevante
+Valor atual
+Produtos ativos abaixo do nível
+Contagem de produtos ativos com estoque < nível (RN4)
+Mede o tamanho do problema de reposição
+5 de 23 (21,7%)
+Produtos em ruptura
+Estoque = 0 (RN5)
+Produto indisponível para venda
+1 (Hanging Basket)
+Produtos em nível crítico
+Estoque < 50% do nível
+Risco iminente de ruptura
+2 (Tomato Seeds, Hand Cultivator)
+Valor do estoque a custo
+Σ quantidade × custo (RN6)
+Capital imobilizado
+US$ 4.763,00 (ativos: 4.731,00; descontinuado: 32,00)
+Unidades vendidas efetivas
+Σ quantidade dos itens de pedidos não cancelados (RN1, RN2)
+Mostra o que mais sai
+86 unidades
+Déficit total para o nível
+Σ déficit dos produtos ativos abaixo do nível (RN7)
+Dimensiona o esforço mínimo de reposição
+60 unidades (≈ US$ 152,00 a custo)
+Fornecedores com itens a repor
+Fornecedores distintos ligados aos produtos em alerta
+Indica com quem negociar
+4 de 6
+Itens de alta saída em alerta
+Abaixo do nível e com ≥ 4 unidades vendidas (RN8)
+Cruza risco de estoque com demanda
+2 (Pothos 'Golden', Tomato Seeds)
+Pedidos cancelados desconsiderados
+Contagem de pedidos “cancelled”
+Transparência da regra RN1
+1 pedido (US$ 22,00)
+Unidades em pedidos em aberto
+Σ quantidade dos itens de pedidos “pending” e “processing”
+Estoque que pode já estar comprometido (ver Seção 8)
+21 unidades (9 pendentes + 12 em processamento)
+Para cada produto, a tabela de prioridade também mostra: categoria, fornecedor, e-mail de contato, estoque atual, nível de reposição, razão estoque/nível, déficit, unidades vendidas, unidades em pedidos em aberto e nível de alerta.
+5. Gráficos, tabelas, filtros e interações
+5.1 Visualizações
+#
+Visualização
+Conteúdo
+Pergunta atendida
+V1
+Cartões de indicadores (KPIs)
+Os indicadores da Seção 4, no topo da página
+Visão rápida de todas as perguntas
+V2
+Barras horizontais: estoque × nível de reposição
+Um produto por barra, ordenado pela razão estoque/nível, com traço marcando o nível de reposição e cor pelo nível de alerta
+Abaixo do nível; zerado ou muito baixo
+V3
+Tabela de prioridade de reposição
+Lista de produtos a repor com fornecedor, contato, déficit, vendas e alerta (formatação condicional)
+Prioridade; fornecedores
+V4
+Barras: unidades vendidas por produto
+Top produtos por volume efetivo, com cor indicando se estão em alerta de estoque
+Maior volume de vendas e disponibilidade
+V5
+Barras: % de produtos ativos abaixo do nível por categoria
+Mostra a proporção (e a contagem) em cada categoria
+Categorias com mais itens a repor
+V6
+Barras: valor do estoque a custo por categoria
+Valor em US$ por categoria
+Valor do estoque
+V7
+Barras: produtos a repor por fornecedor
+Quantidade de itens em alerta por fornecedor, com e-mail na tabela
+Fornecedores associados
+V8
+Quadro de descontinuados com saldo
+Produtos descontinuados que ainda têm unidades em estoque, rotulados “não repor”
+Regra RN3
+V9
+Dispersão: estoque ÷ nível × unidades vendidas
+Cada produto ativo é um ponto; à esquerda da linha de 100% estão os abaixo do nível e, quanto mais alto, maior a venda
+Maior volume de vendas e disponibilidade (pergunta 3)
+Por que esses tipos de gráfico? Barras horizontais facilitam a leitura de nomes de produtos longos e a comparação entre itens. A tabela é indispensável porque a decisão final é operacional (quem comprar, quanto, de quem). Evitaram-se gráficos de pizza e de linha: não há comparação de partes de um todo relevante nem série temporal de estoque (a base não tem histórico). A dispersão (V9) foi incluída porque responde, de uma só vez, se um produto que vende bem está com estoque em risco.
+5.2 Filtros
+Categoria e Fornecedor: permitem que cada responsável veja apenas a sua carteira.
+Nível de alerta: isola, por exemplo, só ruptura e crítico.
+Status do pedido: altera o volume vendido (todos não cancelados ou apenas enviados, RN2). “Cancelled” não pode ser incluído, por RN1.
+Período do pedido (order_date): afeta apenas as vendas; o estoque é sempre o atual.
+Incluir descontinuados: desligado por padrão (RN3).
+Busca por produto: localização rápida de um item.
+5.3 Interações
+Filtro cruzado: clicar em uma categoria (V5/V6) ou fornecedor (V7) filtra todos os demais elementos.
+Detalhe ao passar o mouse: mostra estoque, nível, déficit, custo e vendas do produto.
+Ordenação das colunas da tabela V3 e exportação da lista para uso na compra.
+Parâmetros ajustáveis: cortes de alerta (RN5) e limite de alta saída (RN8).
+6. Organização das informações
+O dashboard segue a lógica do geral para o específico, dividido em duas abas para evitar excesso de informação em uma única tela:
+Aba 1 – Visão geral do estoque (“como estamos?”): filtros no topo, cartões de KPI, gráfico de estoque × nível e visões por categoria (quantidade a repor e valor).
+Aba 2 – Plano de reposição e fornecedores (“o que fazer?”): tabela de prioridade, produtos a repor por fornecedor, vendas por produto e quadro de descontinuados.
+Semáforo de cores com rótulo: a mesma paleta é usada em todo o dashboard (roxo = ruptura, âmbar = crítico, amarelo = alerta, azul = observação, verde = adequado). Como a cor sozinha pode confundir, cada nível também aparece escrito, o que ajuda na leitura por qualquer pessoa. Os descontinuados usam cinza para sinalizar que estão fora das recomendações.
+Figura 1 – Esboço (wireframe) da Aba 1: visão geral do estoque.
+Figura 2 – Esboço (wireframe) da Aba 2: plano de reposição e fornecedores.
+As figuras 3 e 4 são exemplos de como algumas das visualizações ficariam, desenhadas com os dados reais fornecidos.
+Figura 3 – Exemplo da visualização V2 com os dados da base.
+Figura 4 – Exemplo da visualização V6 com os dados da base. Houseplants concentra 36,7% do valor.
+A visualização V9 (dispersão) cruza duas informações que um ranking simples de vendas não mostra ao mesmo tempo: o quanto o estoque está distante do nível de reposição e o quanto o produto vende. O quadrante superior esquerdo reúne os produtos que merecem atenção primeiro.
+Figura 5 – Exemplo da visualização V9: matriz de priorização com os dados da base.
+A figura 6 complementa a visualização V5: mostra, em cada categoria, quantos produtos ativos estão em cada nível de alerta. Assim, a gestão vê onde estão os problemas e também o tamanho de cada categoria.
+Figura 6 – Exemplo complementar à visualização V5: situação dos produtos ativos por categoria.
+7. O que o dashboard mostraria com os dados atuais
+Esta seção conecta cada pergunta da gestão a uma visualização e ao resultado obtido com a base fornecida.
+Pergunta da gestão
+Visual
+Resultado com os dados atuais
+1. Abaixo do nível de reposição
+V2, V3
+Cinco produtos ativos: Pothos 'Golden' (8 de 12), Tomato Seeds 'Roma' (5 de 40), Hand Cultivator (3 de 10), Hanging Basket (0 de 10) e Orchid Food (6 de 10).
+Bird Feeder (4 de 6) também está abaixo, mas é descontinuado e não é recomendado (RN3).
+2. Zerado ou muito baixo
+V2, V3
+Ruptura: Hanging Basket.
+Crítico (< 50%): Tomato Seeds (12,5% do nível) e Hand Cultivator (30%).
+3. Maior volume de vendas
+V4, V9
+Sunflower Seeds (12 unidades) e Terracotta Pot 8in (9) lideram, mas têm estoque folgado (200/50 e 90/25). Sete produtos vendem 5 unidades cada.
+Entre os mais vendidos, apenas Pothos 'Golden' (5 un.) está abaixo do nível. Fiddle-Leaf Fig (5 un.; 14 em estoque para nível 10) merece observação.
+4. Categorias com mais itens a repor
+V5
+Cada uma das 5 categorias afetadas tem 1 produto em alerta, então a proporção é mais informativa: Fertilizer 50% (1 de 2); Seeds & Bulbs, Tools e Pots & Planters 33% (1 de 3); Houseplants 20% (1 de 5). Soil & Compost, Watering e Outdoor Decor: nenhum item ativo em alerta.
+5. Valor do estoque
+V1, V6
+US$ 4.763,00 a custo. Por categoria: Houseplants 1.747,00; Seeds & Bulbs 664,50; Soil & Compost 599,00; Tools 448,50; Pots & Planters 401,00; Watering 351,00; Outdoor Decor 288,00; Fertilizer 264,00.
+6. Prioridade de acompanhamento
+V3
+Ver tabela de prioridade abaixo.
+7. Fornecedores
+V3, V7
+SunGrow Nurseries (2 itens: Pothos e Orchid Food); Bloomfield Seeds (1: Tomato Seeds); Ironwood Tools (1: Hand Cultivator); Terra Pots Co (1: Hanging Basket).
+Ironwood Tools não tem e-mail cadastrado. RootWorks Supply não está associado a nenhum produto.
+Tabela de prioridade de reposição (aplicando RN5 e RN9)
+#
+Produto
+Categoria
+Fornecedor
+Estoque / nível
+Déficit
+Un. vendidas
+Alerta
+1
+Hanging Basket
+Pots & Planters
+Terra Pots Co
+0 / 10
+10
+0
+Ruptura
+2
+Tomato Seeds 'Roma'
+Seeds & Bulbs
+Bloomfield Seeds
+5 / 40
+35
+4
+Crítico
+3
+Hand Cultivator
+Tools
+Ironwood Tools
+3 / 10
+7
+2
+Crítico
+4
+Pothos 'Golden'
+Houseplants
+SunGrow Nurseries
+8 / 12
+4
+5
+Alerta
+5
+Orchid Food
+Fertilizer
+SunGrow Nurseries
+6 / 10
+4
+2
+Alerta
+Em observação (100% a 150% do nível): Fiddle-Leaf Fig (14/10; 5 vendidas), Solar Lantern (9/8; 3), Drip Hose 25ft (12/8; 2) e Cactus Mix Soil (20/15; 1). Descontinuado, não repor: Bird Feeder (4/6). Os demais 14 produtos ativos estão em nível adequado.
+Leitura crítica: a prioridade 1 (Hanging Basket) tem 0 vendas no período, mas isso não indica falta de demanda: sem estoque, o produto não podia ser vendido (RN10). Já Pothos 'Golden' é o único item de alta saída da lista que ainda não está crítico; vale acompanhá-lo de perto por vender bem e estar abaixo do nível.
+8. Limitações da base de dados
+Reconhecer as limitações evita que o dashboard induza decisões erradas. A tabela mostra cada limitação, seu efeito sobre as análises e como a proposta lida com ela.
+Limitação
+Efeito sobre as análises
+Como a proposta trata
+Não há histórico de movimentação de estoque
+Não é possível calcular giro, cobertura em dias, tendência ou prever ruptura. O estoque é uma “foto” sem data de referência.
+O dashboard mostra apenas a situação atual e não faz projeções.
+Não há prazos de entrega dos fornecedores
+Não se sabe com que antecedência pedir. O nível de reposição é um valor único e fixo.
+Prioriza por nível de estoque e vendas; exibe fornecedor e contato. Os prazos poderiam ser incorporados no futuro.
+Período curto e poucos registros
+Apenas 24 pedidos e 48 itens (de 15/01/2024 a 14/06/2024). Há muitos empates em vendas (7 produtos com 5 unidades), e não dá para afirmar sazonalidade.
+Vendas usadas como critério secundário; evitam-se conclusões de tendência.
+Não se sabe se pedidos “pending” e “processing” já baixaram o estoque
+O estoque atual pode estar superestimado ou já descontado. Ex.: o pedido pendente de 2 Hand Cultivator, que tem 3 em estoque.
+Filtro de status do pedido; limitação descrita em nota no dashboard.
+Não há estoque-alvo nem quantidade de compra
+Só dá para calcular o déficit mínimo até o nível de reposição.
+O déficit é apresentado como mínimo, e não como pedido sugerido (RN7).
+Um único custo por produto
+O valor do estoque é aproximado; não considera variações de custo entre lotes ou datas.
+Rótulo “valor estimado a custo cadastrado”.
+Cadastro de fornecedores incompleto
+Ironwood Tools e RootWorks Supply sem e-mail; RootWorks sem produtos associados; só há um fornecedor por produto, sem alternativa.
+Campo de contato aparece vazio na tabela como alerta de cadastro a completar.
+Ausência de venda com estoque zerado
+Produto em ruptura aparece com 0 vendas, o que pode ser mal interpretado. A Hanging Basket nem aparece em pedidos: não dá para saber se zerou por vendas anteriores ou se nunca foi abastecida.
+Regra RN10 e destaque de ruptura.
+Inconsistência de formato entre dicionário e arquivos
+O dicionário descreve datas como DD/MM/AAAA e booleanos como TRUE/FALSE, mas os arquivos trazem AAAA-MM-DD e true/false.
+Padronizar os tipos na importação para evitar erros em filtros de data e em discontinued.
+9. Uso da IA generativa e avaliação crítica das sugestões
+A IA foi usada para o brainstorming de possíveis análises e indicadores. Cada sugestão foi avaliada com base no objetivo da gestão e nos dados realmente disponíveis, e não aceita automaticamente. O quadro resume as decisões.
+Como o processo foi conduzido: a IA recebeu o contexto do negócio, o dicionário de dados e as seis tabelas, levantou possibilidades de indicadores, gráficos e funcionalidades e calculou os indicadores diretamente sobre os arquivos, para testar se cada ideia funcionava com os dados reais. Esses testes trouxeram achados que mudaram a proposta, como o fato de o preço dos pedidos ser igual ao preço atual (descartando análises de preço) e de a Hanging Basket nunca ter sido vendida na base. Cada sugestão foi então julgada com a pergunta: “isso é viável com esta base e ajuda a decisão de reposição?”.
+Sugestão avaliada
+Decisão
+Justificativa
+Alerta por nível de reposição com semáforo
+Aceita
+Usa o campo reorder_level já cadastrado e responde diretamente às perguntas 1 e 2.
+Excluir cancelados e descontinuados das recomendações
+Aceita
+São regras explícitas do enunciado (RN1 e RN3).
+Valor do estoque por categoria
+Aceita
+Responde à pergunta 5 com os campos quantity_on_hand e cost.
+Priorização combinando alerta e volume de vendas
+Aceita, simplificada
+Em vez de uma pontuação complexa, usa-se nível de alerta e, como desempate, as vendas (RN9). É mais fácil de explicar à gestão.
+Sugerir quantidade de compra
+Adaptada
+Sem estoque-alvo nem prazos, qualquer quantidade sugerida seria inventada. Mostra-se apenas o déficit mínimo.
+Cobertura de estoque em dias e giro
+Descartada
+Exigem histórico de movimentação e período de vendas mais longo, que a base não tem. Com tão poucas vendas, quase todo produto apareceria com muitos meses de cobertura, inclusive os abaixo do nível (o Tomato Seeds 'Roma' teria mais de seis meses), o que esconderia o alerta.
+Previsão de demanda ou de ruptura
+Descartada
+Apenas cinco meses e 48 itens vendidos não sustentam previsão confiável.
+Usar o tempo entre order_date e shipped_date como prazo de entrega
+Descartada
+Esse intervalo é o envio ao cliente, e não a entrega do fornecedor à loja; usá-lo seria um erro de interpretação.
+Análises de clientes, estados e cupons
+Descartada
+Não contribuem para decisões de estoque; a tabela customers não é usada.
+Curva ABC por faturamento e margem por produto
+Descartada nesta versão
+Não foram pedidas, e o volume de vendas é muito pequeno. Podem ser uma evolução futura.
+Considerar pedidos “pending” e “processing” como demanda, e não só “shipped”
+Aceita, com filtro
+São compras já feitas que vão consumir estoque; o filtro de status permite ver apenas os enviados (RN2).
+10. Conclusão
+A proposta entrega um dashboard enxuto, organizado em duas abas, que responde às sete perguntas da gestão com indicadores e regras claras. Ele trata corretamente os pedidos cancelados e os produtos descontinuados e deixa explícitas as limitações da base, para que seja usado como apoio à decisão e não como previsão.
+Com os dados atuais, o dashboard direcionaria a atenção para cinco produtos ativos: Hanging Basket (ruptura), Tomato Seeds 'Roma' e Hand Cultivator (nível crítico) e Pothos 'Golden' e Orchid Food (em alerta), envolvendo quatro fornecedores. Como evolução, a coleta de histórico de movimentação de estoque, de prazos de entrega e de estoque-alvo permitiria incluir cobertura em dias, previsão de ruptura e sugestão de quantidade de compra.
