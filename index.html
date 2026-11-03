@@ -1,21 +1,502 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Garden Shop – Dashboard de Estoque (Stlite)</title>
-  <!-- Stlite shim (WebAssembly) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/@stlite/shim@2.0.0-beta.12/dist/stlite.js"></script>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Garden Shop — Dashboard de Estoque 🌿</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.75.0/build/stlite.css" />
   <style>
-    html, body, #root { margin:0; height:100%; width:100%; }
+    /* ── Loading splash ─────────────────────────────────────── */
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #f0f7f0 0%, #d8f3dc 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999; font-family: 'Segoe UI', system-ui, sans-serif;
+      transition: opacity 0.8s ease;
+    }
+    #loading-screen .logo { font-size: 5rem; margin-bottom: 1.2rem;
+      animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse {
+      0%,100% { transform: scale(1);   }
+      50%      { transform: scale(1.1); }
+    }
+    #loading-screen h1 {
+      color: #1b4332; font-size: 1.8rem; font-weight: 800;
+      margin: 0 0 0.4rem; text-align: center;
+    }
+    #loading-screen p { color: #52796f; font-size: 1rem; margin: 0 0 2rem; }
+    .progress-bar {
+      width: 280px; height: 8px;
+      background: #b7e4c7; border-radius: 8px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: #2d6a4f; border-radius: 8px;
+      animation: fill 4s ease-in-out infinite;
+    }
+    @keyframes fill {
+      0%   { width: 5%;   }
+      70%  { width: 90%;  }
+      100% { width: 98%;  }
+    }
+    #root { width: 100%; height: 100vh; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script>
-    const root = document.getElementById('root');
-    // Stlite will serve the current directory (.) as a virtual file system.
-    // It will find app.py, requirements.txt, src/ and the CSV folder.
-    stlite.mount(root, { startUrl: '.' });
-  </script>
+
+<div id="loading-screen">
+  <div class="logo">🌿</div>
+  <h1>Garden Shop Dashboard</h1>
+  <p>Carregando ambiente Python no navegador…</p>
+  <div class="progress-bar"><div class="progress-fill"></div></div>
+</div>
+
+<div id="root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.75.0/build/stlite.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Garden Shop — Stlite (Streamlit + Pyodide/WebAssembly) bootstrap
+// Todos os dados CSV são embutidos como strings Python para funcionar sem
+// servidor backend — compatível com GitHub Pages (arquivos estáticos).
+// ─────────────────────────────────────────────────────────────────────────────
+
+stlite.mount(
+  {
+    requirements: ["pandas", "altair"],
+    entrypoint: "app.py",
+    files: {
+      "app.py": `
+import streamlit as st
+import pandas as pd
+import io
+import altair as alt
+
+# ── Page config ──────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Garden Shop — Dashboard de Estoque",
+    page_icon="\\U0001F33F",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ── Custom CSS ────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+[data-testid="metric-container"] {
+    background: #f0f7f0; border: 1px solid #b7e4c7;
+    border-radius: 12px; padding: 16px 20px;
+}
+[data-testid="metric-container"] label { color: #52796f !important; font-weight: 600; }
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    color: #1b4332 !important; font-size: 1.5rem !important; font-weight: 700;
+}
+.dash-header {
+    background: linear-gradient(135deg, #2d6a4f 0%, #40916c 60%, #52b788 100%);
+    border-radius: 14px; padding: 24px 32px; margin-bottom: 28px; color: white;
+}
+.dash-header h1 { margin: 0; font-size: 1.7rem; font-weight: 800; }
+.dash-header p  { margin: 6px 0 0; opacity: 0.88; font-size: 0.95rem; }
+[data-testid="stSidebar"] { background: #f0f7f0; }
+.badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.82rem; font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Embedded CSV data ─────────────────────────────────────────────────────────
+PRODUCTS_CSV = """product_id,product_name,category_id,supplier_id,price,cost,quantity_on_hand,reorder_level,discontinued
+1,Fiddle-Leaf Fig,1,1,32.00,18.00,14,10,false
+2,Monstera Deliciosa,1,1,28.00,15.00,40,15,false
+3,Snake Plant,1,4,18.00,9.00,55,20,false
+4,Pothos Golden,1,4,12.00,5.00,8,12,false
+5,ZZ Plant,1,1,24.00,12.00,30,10,false
+6,Sunflower Seeds,2,6,3.50,1.20,200,50,false
+7,Tomato Seeds Roma,2,6,2.75,0.90,5,40,false
+8,Tulip Bulbs 10pk,2,6,8.00,3.50,120,30,false
+9,Pruning Shears,3,5,22.00,11.00,18,8,false
+10,Garden Trowel,3,5,9.50,4.00,60,15,false
+11,Hand Cultivator,3,5,8.00,3.50,3,10,false
+12,Terracotta Pot 8in,4,2,6.50,2.50,90,25,false
+13,Ceramic Planter Sage,4,2,19.00,8.00,22,10,false
+14,Hanging Basket,4,2,14.00,6.00,0,10,false
+15,Potting Soil 20L,5,1,11.00,5.00,75,20,false
+16,Compost Mix 10L,5,1,7.50,3.00,48,20,false
+17,Watering Can 2gal,6,2,16.00,7.00,33,10,false
+18,Drip Hose 25ft,6,5,21.00,10.00,12,8,false
+19,All-Purpose Fertilizer,7,4,13.50,6.00,40,15,false
+20,Orchid Food,7,4,9.00,4.00,6,10,false
+21,Garden Gnome,8,2,15.00,7.00,25,5,false
+22,Solar Lantern,8,2,18.50,9.00,9,8,false
+23,Cactus Mix Soil,5,1,9.00,4.00,20,15,false
+24,Bird Feeder,8,5,17.00,8.00,4,6,true"""
+
+CATEGORIES_CSV = """category_id,category_name
+1,Houseplants
+2,Seeds and Bulbs
+3,Tools
+4,Pots and Planters
+5,Soil and Compost
+6,Watering
+7,Fertilizer
+8,Outdoor Decor"""
+
+SUPPLIERS_CSV = """supplier_id,supplier_name,contact_email,state
+1,GreenLeaf Wholesale,orders@greenleaf.example,CA
+2,Terra Pots Co,hello@terrapots.example,OH
+3,RootWorks Supply,Nao informado,PA
+4,SunGrow Nurseries,sales@sungrow.example,FL
+5,Ironwood Tools,Nao informado,PA
+6,Bloomfield Seeds,contact@bloomfield.example,OR"""
+
+ORDERS_CSV = """order_id,customer_id,order_date,shipped_date,status,coupon_code
+1,1,2024-03-02,2024-03-04,shipped,SPRING10
+2,1,2024-05-18,2024-05-20,shipped,
+3,4,2024-02-11,2024-02-13,shipped,
+4,7,2024-04-07,,processing,
+5,3,2024-01-25,2024-01-28,shipped,WELCOME5
+6,6,2024-03-15,2024-03-18,shipped,
+7,2,2024-05-01,,pending,
+8,10,2024-04-22,2024-04-25,shipped,SPRING10
+9,13,2024-05-20,,processing,
+10,15,2024-02-28,2024-03-02,shipped,
+11,11,2024-06-01,2024-06-03,shipped,
+12,17,2024-01-15,2024-01-17,shipped,
+13,4,2024-06-10,,pending,
+14,18,2024-03-30,2024-04-01,shipped,WELCOME5
+15,20,2024-05-12,2024-05-15,shipped,
+16,7,2024-02-19,2024-02-22,shipped,
+17,9,2024-04-03,,cancelled,
+18,16,2024-06-05,2024-06-07,shipped,
+19,1,2024-06-14,,processing,SPRING10
+20,12,2024-03-21,2024-03-24,shipped,
+21,13,2024-04-18,2024-04-20,shipped,
+22,3,2024-05-27,,pending,
+23,6,2024-06-02,2024-06-04,shipped,SUMMER15
+24,10,2024-01-30,2024-02-02,shipped,"""
+
+ORDER_ITEMS_CSV = """order_item_id,order_id,product_id,quantity,unit_price
+1,1,1,1,32.00
+2,1,15,2,11.00
+3,2,2,1,28.00
+4,2,17,1,16.00
+5,3,3,2,18.00
+6,3,10,1,9.50
+7,4,6,5,3.50
+8,4,8,2,8.00
+9,5,4,3,12.00
+10,5,12,4,6.50
+11,6,5,1,24.00
+12,6,19,2,13.50
+13,7,9,1,22.00
+14,7,11,2,8.00
+15,8,2,2,28.00
+16,8,13,1,19.00
+17,9,21,1,15.00
+18,9,22,1,18.50
+19,10,1,1,32.00
+20,10,16,3,7.50
+21,11,3,2,18.00
+22,11,18,1,21.00
+23,12,7,4,2.75
+24,12,6,3,3.50
+25,13,15,2,11.00
+26,13,23,1,9.00
+27,14,5,1,24.00
+28,14,20,2,9.00
+29,15,12,5,6.50
+30,15,17,1,16.00
+31,16,2,1,28.00
+32,16,19,1,13.50
+33,17,9,1,22.00
+34,18,1,2,32.00
+35,18,3,1,18.00
+36,19,4,2,12.00
+37,19,10,1,9.50
+38,20,8,3,8.00
+39,20,16,2,7.50
+40,21,5,1,24.00
+41,21,13,2,19.00
+42,22,21,1,15.00
+43,22,22,2,18.50
+44,23,2,1,28.00
+45,23,18,1,21.00
+46,24,1,1,32.00
+47,24,15,1,11.00
+48,24,6,4,3.50"""
+
+# ── Build consolidated DataFrame ──────────────────────────────────────────────
+@st.cache_data
+def build_data():
+    products    = pd.read_csv(io.StringIO(PRODUCTS_CSV))
+    categories  = pd.read_csv(io.StringIO(CATEGORIES_CSV))
+    suppliers   = pd.read_csv(io.StringIO(SUPPLIERS_CSV))
+    orders      = pd.read_csv(io.StringIO(ORDERS_CSV))
+    order_items = pd.read_csv(io.StringIO(ORDER_ITEMS_CSV))
+
+    # Types
+    products["discontinued"]    = products["discontinued"].astype(str).str.lower().isin(["true","1","yes"])
+    products["cost"]             = pd.to_numeric(products["cost"],             errors="coerce")
+    products["price"]            = pd.to_numeric(products["price"],            errors="coerce")
+    products["quantity_on_hand"] = pd.to_numeric(products["quantity_on_hand"], errors="coerce").fillna(0).astype(int)
+    products["reorder_level"]    = pd.to_numeric(products["reorder_level"],    errors="coerce").fillna(0).astype(int)
+
+    # Supplier email
+    if "contact_email" in suppliers.columns:
+        suppliers = suppliers.rename(columns={"contact_email": "email"})
+    suppliers["email"] = suppliers["email"].fillna("Nao informado").replace("", "Nao informado")
+
+    # Sales (exclude cancelled) — REQ-002
+    valid_orders = orders[orders["status"].str.lower() != "cancelled"]
+    merged       = order_items.merge(valid_orders[["order_id"]], on="order_id", how="inner")
+    sales = (
+        merged.groupby("product_id")
+        .agg(units_sold=("quantity", "sum"),
+             revenue=("unit_price", lambda x: (merged.loc[x.index, "quantity"] * x).sum()))
+        .reset_index()
+    )
+
+    # Join — REQ-006: exactly 24 rows
+    df = products.merge(categories,  on="category_id",  how="left")
+    df = df.merge(suppliers,         on="supplier_id",  how="left")
+    df = df.merge(sales,             on="product_id",   how="left")
+    df["units_sold"] = df["units_sold"].fillna(0).astype(int)
+    df["revenue"]    = df["revenue"].fillna(0.0)
+
+    # Rename category_name collision
+    if "category_name_x" in df.columns:
+        df = df.rename(columns={"category_name_x": "category_name"})
+    if "category_name_y" in df.columns:
+        df = df.drop(columns=["category_name_y"])
+
+    # Cost value — REQ-003
+    df["total_cost_value"] = (df["quantity_on_hand"] * df["cost"]).round(2)
+
+    # Alert classification — REQ-004
+    def classify(row):
+        if row["discontinued"]:
+            return "Descontinuado"
+        qoh, lvl = row["quantity_on_hand"], row["reorder_level"]
+        if qoh == 0:
+            return "Ruptura"
+        ratio = qoh / lvl if lvl != 0 else float("inf")
+        if ratio < 0.5:  return "Critico"
+        if ratio < 1.0:  return "Alerta"
+        if ratio <= 1.5: return "Observacao"
+        return "Adequado"
+
+    df["alert_status"] = df.apply(classify, axis=1)
+
+    # Deficit — REQ-005
+    def deficit(row):
+        if row["discontinued"] or row["quantity_on_hand"] >= row["reorder_level"]:
+            return 0
+        return int(row["reorder_level"] - row["quantity_on_hand"])
+
+    df["reorder_deficit"] = df.apply(deficit, axis=1)
+    df = df.rename(columns={"email": "supplier_email"})
+    return df
+
+df_full = build_data()
+
+# ── KPIs ─────────────────────────────────────────────────────────────────────
+total_value  = round(float(df_full["total_cost_value"].sum()), 2)
+total_sold   = int(df_full["units_sold"].sum())
+active_df    = df_full[~df_full["discontinued"]]
+n_ruptura    = int((active_df["alert_status"] == "Ruptura").sum())
+n_alerta_tot = int(active_df["alert_status"].isin(["Ruptura","Critico","Alerta"]).sum())
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## Filtros")
+    st.markdown("---")
+    cats = ["Todas"] + sorted(df_full["category_name"].dropna().unique().tolist())
+    sel_cat   = st.selectbox("Categoria", cats)
+    alertas   = ["Todos","Ruptura","Critico","Alerta","Observacao","Adequado","Descontinuado"]
+    sel_alert = st.selectbox("Situacao de Alerta", alertas)
+    busca     = st.text_input("Buscar produto", placeholder="Ex: Tomato, Hanging...")
+
+    st.markdown("---")
+    st.markdown("**Legenda de Status**")
+    st.markdown("**Ruptura** — Estoque zerado")
+    st.markdown("**Critico** — < 50% do minimo")
+    st.markdown("**Alerta** — 50-99% do minimo")
+    st.markdown("**Observacao** — 100-150% do minimo")
+    st.markdown("**Adequado** — > 150% do minimo")
+    st.markdown("**Descontinuado** — Item inativo")
+    st.markdown("---")
+    st.caption("Garden Shop Dashboard v1.0")
+    st.caption("IA Aplicada - Julia Maria de Carvalho Vale")
+
+# ── Header ────────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="dash-header">
+  <h1>Garden Shop - Dashboard de Gestao de Estoque</h1>
+  <p>Monitoramento de estoque, reposicao e indicadores operacionais</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ── KPI Cards ─────────────────────────────────────────────────────────────────
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Valor Total em Estoque",      "US$ {:,.2f}".format(total_value))
+c2.metric("Unidades Vendidas",           str(total_sold))
+c3.metric("Produtos em Alerta/Ruptura",  str(n_alerta_tot))
+c4.metric("Produtos em Ruptura",         str(n_ruptura))
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ── Apply filters ─────────────────────────────────────────────────────────────
+dv = df_full.copy()
+if sel_cat   != "Todas":  dv = dv[dv["category_name"] == sel_cat]
+if sel_alert != "Todos":  dv = dv[dv["alert_status"]  == sel_alert]
+if busca.strip():
+    dv = dv[dv["product_name"].str.contains(busca.strip(), case=False, na=False)]
+
+# ── Reorder Table ─────────────────────────────────────────────────────────────
+st.subheader("Tabela Operacional de Reposicao e Alertas")
+
+SEVERITY = {"Ruptura":1,"Critico":2,"Alerta":3,"Observacao":4,"Adequado":5,"Descontinuado":6}
+ROW_COLS = {
+    "Ruptura":       "#ffccd5",
+    "Critico":       "#ffe8cc",
+    "Alerta":        "#fff3cd",
+    "Observacao":    "#d4edda",
+    "Adequado":      "#cce5ff",
+    "Descontinuado": "#e2e3e5",
+}
+
+if dv.empty:
+    st.info("Nenhum produto encontrado com os filtros selecionados.")
+else:
+    cols = ["product_name","category_name","alert_status",
+            "quantity_on_hand","reorder_level","reorder_deficit",
+            "units_sold","total_cost_value","supplier_name","supplier_email"]
+    tbl = (
+        dv[cols].copy()
+        .assign(_s=dv["alert_status"].map(SEVERITY))
+        .sort_values(["_s","reorder_deficit"], ascending=[True,False])
+        .drop(columns=["_s"]).reset_index(drop=True)
+    )
+    tbl.columns = ["Produto","Categoria","Status",
+                   "Estoque","Minimo","Deficit",
+                   "Vendido","Valor US$","Fornecedor","E-mail"]
+
+    def row_bg(row):
+        bg = ROW_COLS.get(row["Status"], "white")
+        return ["background-color:{}".format(bg)] * len(row)
+
+    st.dataframe(
+        tbl.style.apply(row_bg, axis=1)
+           .format({"Estoque":"{:.0f}","Minimo":"{:.0f}",
+                    "Deficit":"{:.0f}","Vendido":"{:.0f}",
+                    "Valor US$":"US$ {:,.2f}"}),
+        hide_index=True, use_container_width=True, height=420
+    )
+
+st.markdown("---")
+
+# ── Charts ────────────────────────────────────────────────────────────────────
+cl, cr = st.columns([3, 2])
+
+with cl:
+    st.subheader("Top 10 - Produtos Mais Vendidos vs Estoque Atual")
+    top10 = (
+        df_full.sort_values("units_sold", ascending=False)
+        .head(10)[["product_name","units_sold","quantity_on_hand"]]
+        .reset_index(drop=True)
+    )
+    t = top10.melt("product_name", var_name="Metrica", value_name="Unidades")
+    t["Metrica"] = t["Metrica"].map({"units_sold":"Und. Vendidas","quantity_on_hand":"Estoque"})
+    chart = (
+        alt.Chart(t)
+        .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+        .encode(
+            x=alt.X("product_name:N", sort=None, title="Produto",
+                    axis=alt.Axis(labelAngle=-38, labelLimit=110)),
+            y=alt.Y("Unidades:Q", title="Unidades"),
+            color=alt.Color("Metrica:N",
+                scale=alt.Scale(range=["#40916c","#b7e4c7"]),
+                legend=alt.Legend(title="")),
+            xOffset="Metrica:N",
+            tooltip=["product_name:N","Metrica:N","Unidades:Q"],
+        )
+        .properties(height=360)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+with cr:
+    st.subheader("Valor por Categoria (US$)")
+    cat_agg = (
+        df_full.groupby("category_name")
+        .agg(Produtos=("product_id","count"), Valor=("total_cost_value","sum"))
+        .reset_index().sort_values("Valor", ascending=False)
+        .rename(columns={"category_name":"Categoria","Valor":"Valor US$"})
+    )
+    cat_agg["Valor US$"] = cat_agg["Valor US$"].map(lambda x: "US$ {:,.2f}".format(x))
+    st.dataframe(cat_agg, hide_index=True, use_container_width=True, height=360)
+
+st.markdown("---")
+
+# ── Priority alert cards ──────────────────────────────────────────────────────
+st.subheader("Acao Imediata - Produtos Prioritarios para Reposicao")
+critical = df_full[
+    df_full["alert_status"].isin(["Ruptura","Critico"]) & (~df_full["discontinued"])
+].sort_values(["alert_status","reorder_deficit"], ascending=[True,False])
+
+BADGE_STYLE = {
+    "Ruptura": "background:#ffccd5;color:#6b0f1a;",
+    "Critico": "background:#ffe8cc;color:#7c4700;",
+}
+
+if critical.empty:
+    st.success("Nenhum produto em situacao de ruptura ou criticidade!")
+else:
+    for _, row in critical.iterrows():
+        bs  = BADGE_STYLE.get(row["alert_status"], "")
+        em  = row.get("supplier_email", "Nao informado")
+        st.markdown("""
+<div style="border:1px solid #dee2e6;border-radius:10px;padding:16px 20px;margin-bottom:12px;background:#fff;">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+    <span class="badge" style="{bs}">{status}</span>
+    <strong style="font-size:1.05rem;">{name}</strong>
+    <span style="color:#6c757d;font-size:0.9rem;">- {cat}</span>
+  </div>
+  <div style="display:flex;gap:28px;flex-wrap:wrap;font-size:0.92rem;color:#343a40;">
+    <span>Estoque: <strong>{stock}</strong></span>
+    <span>Minimo: <strong>{lvl}</strong></span>
+    <span>Deficit: <strong style="color:#c0392b;">{def_}</strong> unid.</span>
+    <span>Fornecedor: <strong>{sup}</strong></span>
+    <span>E-mail: <a href="mailto:{em}" style="color:#2d6a4f;">{em}</a></span>
+  </div>
+</div>""".format(
+            bs=bs, status=row["alert_status"], name=row["product_name"],
+            cat=row["category_name"], stock=int(row["quantity_on_hand"]),
+            lvl=int(row["reorder_level"]), def_=int(row["reorder_deficit"]),
+            sup=row["supplier_name"], em=em,
+        ), unsafe_allow_html=True)
+
+st.caption("Versao 1.0 - Garden Shop Dashboard - Disciplina IA Aplicada - Julia Maria de Carvalho Vale")
+`,
+    },
+  },
+  document.getElementById("root")
+);
+
+// Hide loading screen after Stlite iframe mounts
+const observer = new MutationObserver(function() {
+  var iframe = document.querySelector("#root iframe");
+  if (iframe) {
+    observer.disconnect();
+    setTimeout(function() {
+      var ls = document.getElementById("loading-screen");
+      if (ls) { ls.style.opacity = "0"; setTimeout(function(){ ls.remove(); }, 800); }
+    }, 1800);
+  }
+});
+observer.observe(document.getElementById("root"), { childList: true, subtree: true });
+</script>
 </body>
 </html>

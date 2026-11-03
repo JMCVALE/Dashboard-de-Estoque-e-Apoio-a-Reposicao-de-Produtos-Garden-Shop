@@ -98,6 +98,48 @@ Transformar o estoque em uma lista de ação direta: em menos de 10 segundos, o 
   - Filtro por Status do Pedido (para análise de demanda: todos os não cancelados vs. apenas entregues);
   - Filtro por Nível de Alerta (Todos, Apenas Reposição Necessária, Descontinuados).
 - Visualizações:
+  - Tabela dinâmica de reposição e alerta com cores por status;
+  - Gráfico de barras com o Top Produtos Mais Vendidos e sua relação com o estoque.
+- Validação por testes automatizados com `pytest`.
+- Compatibilidade para rodar localmente (`streamlit run app.py`) e empacotamento para publicação no GitHub Pages via Stlite.
+
+### 5.2. Fora do escopo
+
+- Gestão cadastral de clientes (`customers.csv` deliberadamente não utilizada).
+- Módulo de edição ou escrita nos arquivos CSV originais (os arquivos são somente leitura).
+- Autenticação e controle de níveis de acesso por usuário.
+- Previsão de demanda por IA ou simulação de lead‑time de fornecedores (não suportado pelos dados atuais).
+
+## 12. Implantação no GitHub Pages (Stlite)
+
+1. **Estrutura de diretórios** – a pasta `Garden Shop - bases/` contendo os CSVs deve estar no *root* do repositório.
+2. **Arquivo `index.html`** – já contém o bootstrap que monta o Stlite apontando para o diretório corrente (`.`). Nenhum código Python adicional é necessário.
+3. **Habilitar GitHub Pages** – Settings → Pages → Source → *Branch: main* → *Folder: (root)* → Save.
+4. **URL pública** – será `https://<seu‑usuario>.github.io/garden-shop-dashboard/`.
+5. **Teste** – ao abrir a URL, o dashboard deve renderizar os KPIs, filtros, tabela e gráfico sem erros. Caso haja mensagem "Failed to fetch …", verifique se a pasta de CSVs foi commitada.
+
+## 13. Critérios de aceitação final
+
+- Todos os testes (`pytest tests/ -v`) passam com 0 falhas.
+- O valor patrimonial do estoque exibido no dashboard é exatamente **US$ 4 763,00**.
+- O volume de unidades vendidas exibido é **86 unidades**.
+- Os 5 produtos críticos são destacados com seus déficits corretos.
+- O dashboard carrega sem exceções tanto localmente (`streamlit run app.py`) quanto na URL do GitHub Pages.
+
+
+### 5.1. Incluído no escopo (MVP - Versão 1.0)
+
+- Carregamento e higienização das tabelas: `products.csv`, `categories.csv`, `suppliers.csv`, `orders.csv` e `order_items.csv`.
+- Cálculo de 4 KPIs no topo:
+  1. Valor Total do Estoque a Custo (US$);
+  2. Total de Itens em Alerta de Reposição (ativos abaixo do nível mínimo);
+  3. Total de Itens em Ruptura de Estoque (zerados);
+  4. Volume Total de Itens Vendidos (pedidos efetivos).
+- Filtros interativos:
+  - Filtro por Categoria de Produto;
+  - Filtro por Status do Pedido (para análise de demanda: todos os não cancelados vs. apenas entregues);
+  - Filtro por Nível de Alerta (Todos, Apenas Reposição Necessária, Descontinuados).
+- Visualizações:
   - Tabela dinâmica de reposição e estoque com status colorido (Ruptura, Crítico, Alerta, Adequado, Descontinuado) e déficit calculado;
   - Gráfico de barras com o Top Produtos Vendidos e sua relação com o estoque atual.
 - Validação por testes automatizados (`pytest`).

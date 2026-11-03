@@ -1,1 +1,1 @@
-# Modulo de processamento de dados e regras de negocio - Garden Shop
+"""Módulo src para o sistema de gestão de estoque Garden Shop."""
