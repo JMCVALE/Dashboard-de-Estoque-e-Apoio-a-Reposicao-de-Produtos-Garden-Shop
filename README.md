@@ -124,6 +124,8 @@ streamlit run app.py
 
 O dashboard abrirá automaticamente no navegador em `https://jmcvale.github.io/Dashboard-de-Estoque-e-Apoio-a-Reposicao-de-Produtos-Garden-Shop/`.
 
+<img width="1092" height="805" alt="image" src="https://github.com/user-attachments/assets/596bb42b-63f4-4c20-8386-8ec6f622cb56" />
+
 ---
 
 ## 🧪 Testes Automatizados
